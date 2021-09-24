@@ -4,7 +4,16 @@ from collections import defaultdict
 from datetime import datetime
 from threading import Thread
 import sys
+import mysql.connector
 
+
+chatdb=mysql.connector.connect(
+    host="localhost",
+    user="abhishek",
+    password="abhipc",
+    database="abhishek"
+)
+mycursor=chatdb.cursor()
 
 s=socket.socket()
 print("Socket Created successfully")
@@ -32,6 +41,8 @@ def client_thread(conn,port,name,room_name):
         return
 
     while True:
+        t=datetime.now()
+        time=str(t.strftime("%H:%M"))
         try:
             temp=pickle.loads(conn.recv(2048))
             name=temp[0]
@@ -40,13 +51,41 @@ def client_thread(conn,port,name,room_name):
             if msg.decode()=="__send__list__":
                 l=["True",list(room[room_name.decode()]),msg]
                 conn.send(pickle.dumps(l))
+            elif msg.decode()=="__send__history__":
+                mycursor.execute("SELECT * FROM "+name.decode())
+                #print(name.decode())
+                history= mycursor.fetchall()
+                #print(history)
+                l=["history",history,msg]
+                conn.send(pickle.dumps(l))
             elif whom.decode()=="all":
+                #inserting to database
+                sql = "INSERT INTO "+name.decode()+" (Who,Message) VALUES (%s, %s)"
+                val = ("You: ", msg.decode()+"    "+time)
+                mycursor.execute(sql, val)
+                chatdb.commit()
+                
+
+
                 for person in room[room_name.decode()]:
                     if name_socket[person]!=conn:
+                        sql = "INSERT INTO "+person+" (Who,Message) VALUES (%s, %s)"
+                        val = (name.decode(), msg.decode()+"    "+time)
+                        mycursor.execute(sql, val)
+                        chatdb.commit()
                         l=["False",name,msg]
                         #print(msg.decode())
                         name_socket[person].send(pickle.dumps(l))
+                
             else:
+                sql = "INSERT INTO "+name.decode()+" (Who,Message) VALUES (%s, %s)"
+                val = (f"You({whom.decode()}): ", msg.decode()+"    "+time)
+                mycursor.execute(sql, val)
+                chatdb.commit()
+                sql = "INSERT INTO "+whom.decode()+" (Who,Message) VALUES (%s, %s)"
+                val = (name.decode()+"Privately", msg.decode()+"    "+time)
+                mycursor.execute(sql, val)
+                chatdb.commit()
                 #print(whom)
                 name_socket[whom.decode()].send(pickle.dumps(["False",(name.decode()+"(Privately)").encode(),msg]))
 
@@ -77,6 +116,12 @@ while True:
         c1.send(pickle.dumps(set(room[room_name.decode()])))
         name=c1.recv(1024)
         room[room_name.decode()].add(name.decode())
+
+        mycursor.execute("show tables like "+"'"+name.decode()+"'")
+        #https://stackoverflow.com/questions/1650946/mysql-create-table-if-not-exists-error-1050/53582934
+        if not mycursor.fetchall():
+            #mycursor.execute("CREATE TABLE "+name.decode()+" (Who VARCHAR(255),Message VARCHAR(255)) PARTITION BY KEY(Who) (PARTITION p1 , PARTITION p2 ,PARTITION p3 , PARTITION p4 );")
+            mycursor.execute("CREATE TABLE "+name.decode()+" (Who VARCHAR(255),Message VARCHAR(255));")
         print(f"<{name.decode()}>:Connected with ip address:{address1[0]}\n",end=" ")
         if room_name:
             print("With room name:",room_name.decode())
@@ -99,6 +144,10 @@ while True:
 #     c.close()
 
 #s.close()    
+
+
+
+
 
 
 
