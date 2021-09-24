@@ -70,11 +70,12 @@ def kill_thread(thread):
 while True:
     c1,address1=s.accept()
     connections.add(c1)
-    #have to handle the case if different persons with same name join
+    #done:have to handle the case if different persons with same name join
     c1.send(pickle.dumps(set(room.keys())))
     try:
-        name=c1.recv(1024)
         room_name=c1.recv(1024)
+        c1.send(pickle.dumps(set(room[room_name.decode()])))
+        name=c1.recv(1024)
         room[room_name.decode()].add(name.decode())
         print(f"<{name.decode()}>:Connected with ip address:{address1[0]}\n",end=" ")
         if room_name:
@@ -98,7 +99,6 @@ while True:
 #     c.close()
 
 #s.close()    
-
 
 
 
