@@ -5,15 +5,7 @@ from threading import Thread
 from datetime import date, datetime
 import mysql.connector
 
-#keep all data on server,timestamp
-chatdb=mysql.connector.connect(
-    host="localhost",
-    user="abhishek",
-    password="abhipc",
-    database="abhishek"
-)
-
-mycursor=chatdb.cursor()
+#done(first part):keep all data on server,timestamp(last phase)
 
 whom="all"
 flag=False
@@ -35,15 +27,11 @@ else:
 
 c1.send(room_name.encode())
 names_in_room=pickle.loads(c1.recv(2048))
-name=input("Enter Your Name:")
+name=input("\nEnter Your Name:")
 while name in names_in_room:
     print("User already exists.")
     name=input("Enter Name:")
-mycursor.execute("show tables like "+"'"+name+"'")
- 
-#https://stackoverflow.com/questions/1650946/mysql-create-table-if-not-exists-error-1050/53582934
-if not mycursor.fetchall():
-    mycursor.execute("CREATE TABLE "+name+" (Who VARCHAR(255),Message VARCHAR(255)) PARTITION BY KEY(Who) (PARTITION p1 , PARTITION p2 ,PARTITION p3 , PARTITION p4 );")
+
 #to listen_msg
 
 c1.send(name.encode())
@@ -60,18 +48,21 @@ def listen_msg():
             diff_names.__init__()
             for i in l[1]:
                 diff_names.add(i)
+        elif l[0]=="history":
+            print()
+            history=l[1]
+            for x in history:
+                for y in x:
+                    print(y,end="")
+                print()
+              
+            print("\n\t"+"\033[93m {}\033[00m" .format("\nThe End of history...\n\n"))
         else:
             recv_name=l[1].decode()
             msg=l[2].decode()
             t=datetime.now()
             time=t.strftime("%H:%M")
             #printing the recived message with time
-
-            #inserting to database
-            sql = "INSERT INTO "+name+" (Who,Message) VALUES (%s, %s)"
-            val = (recv_name, msg+"    "+time)
-            mycursor.execute(sql, val)
-            chatdb.commit()
 
             print("\n"+"<"+"\033[95m{}\033[00m".format(recv_name)+">: "+msg+"\t"+"\033[96m {}\033[00m".format(time)+"\n")
 #Receiving message from server
@@ -116,31 +107,15 @@ while True:
             whom="all"
             print("\n\t"+"\033[93m {}\033[00m" .format("Go for it...")+"\n\n")
         elif n==4:
-            mycursor.execute("SELECT * FROM "+name)
-            myresult = mycursor.fetchall()
-            print()
-            for x in myresult:
-                for y in x:
-                    print(y,end=": ")
-                print()
-              
-            print("\n\t"+"\033[93m {}\033[00m" .format("\nThe End of history...\n\n"))
-        
+            c1.send(pickle.dumps([name.encode(),"__send__history__".encode(),"all".encode()]))
         else:
             print("\033[91m {}\033[00m" .format("Invalid Choice..."))
             
     else:
         if whom!="all":
-            sql = "INSERT INTO "+name+" (Who,Message) VALUES (%s, %s)"
-            val = ("You ("+whom+")", to_send+"    "+time)
-            mycursor.execute(sql, val)
-            chatdb.commit()
             print("\033[95m{}\033[00m" .format("<You"+"("+whom+")"+">: ")+to_send+"\t"+"\033[96m {}\033[00m".format(time)+"\n")
         else:
-            sql = "INSERT INTO "+name+" (Who,Message) VALUES (%s, %s)"
-            val = ("You", to_send+"    "+time)
-            mycursor.execute(sql, val)
-            chatdb.commit()
+            
             print("\033[95m{}\033[00m" .format("<You>: ")+to_send+"\t"+"\033[96m {}\033[00m".format(time)+"\n")
         c1.send(pickle.dumps([name.encode(),to_send.encode(),whom.encode()]))
 
@@ -157,7 +132,6 @@ def kill_thread(thread):
         ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
 kill_thread(t)
 c1.close()
-
 
 
 
