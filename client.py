@@ -24,8 +24,7 @@ c1.connect(('localhost',9997))
 print("Connected.\n")
 
 #Taking Name
-name=input("Enter Your Name:")
-#sending the name to the server
+
 room_list=pickle.loads(c1.recv(2048))
 if len(room_list)==0:
     print("\n\t"+"\033[91m {}\033[00m".format("No room available,  create new one.")+"\n")
@@ -34,15 +33,20 @@ else:
     print("\nRoom list:",*list(room_list))
     room_name=input("\n"+"\033[92m{}\033[00m" .format("Select Room Name{case sensitive}(Or Create New One):"))
 
+c1.send(room_name.encode())
+names_in_room=pickle.loads(c1.recv(2048))
+name=input("Enter Your Name:")
+while name in names_in_room:
+    print("User already exists.")
+    name=input("Enter Name:")
 mycursor.execute("show tables like "+"'"+name+"'")
-
+ 
 #https://stackoverflow.com/questions/1650946/mysql-create-table-if-not-exists-error-1050/53582934
 if not mycursor.fetchall():
     mycursor.execute("CREATE TABLE "+name+" (Who VARCHAR(255),Message VARCHAR(255)) PARTITION BY KEY(Who) (PARTITION p1 , PARTITION p2 ,PARTITION p3 , PARTITION p4 );")
-c1.send(name.encode())
-c1.send(room_name.encode())
 #to listen_msg
 
+c1.send(name.encode())
 def listen_msg():
     global diff_names,name
     while True:
